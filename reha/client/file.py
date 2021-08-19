@@ -5,32 +5,6 @@ from uvcreha import contenttypes
 from uvcreha.workflow import file_workflow
 
 
-@backend.register("/users/{uid}/add_file", name="user.new_file")
-class AddFile(AddForm):
-    title = "Benutzer anlegen"
-    readonly = ('uid',)
-
-    def update(self):
-        self.content_type = contenttypes.registry['file']
-
-    def create(self, data):
-        binding = self.content_type.bind(self.request.database)
-        data = self.content_type.factory.create(data)
-        obj, response = binding.create(**{
-                **self.params,
-                **data,
-                '_key': data['az'],
-                'state': file_workflow.states.created.name
-            }
-        )
-        return obj
-
-    def get_form(self):
-        return Form.from_schema(
-            self.content_type.schema, include=("az", "uid", "mnr", "vid")
-        )
-
-
 @backend.register("/users/{uid}/file/{az}", name="file.view")
 class FileIndex(DefaultView):
     title = "File"
@@ -48,6 +22,28 @@ class FileIndex(DefaultView):
         )
 
 
+@backend.register("/users/{uid}/add_file", name="user.new_file")
+class AddFile(AddForm):
+    title = "Benutzer anlegen"
+    readonly = ('uid',)
+
+    def update(self):
+        self.content_type = contenttypes.registry['file']
+
+    def create(self, data):
+        crud = self.content_type.get_crud(self.request.app)
+        return crud.create({
+            **self.params,
+            **data,
+            'state': file_workflow.states.created.name
+        }, self.request)
+
+    def get_form(self):
+        return Form.from_schema(
+            self.content_type.schema, include=("az", "uid", "mnr", "vid")
+        )
+
+
 @backend.register("/users/{uid}/file/{az}/edit", name="file.edit")
 class FileEdit(EditForm):
     title = "File"
@@ -55,18 +51,19 @@ class FileEdit(EditForm):
 
     def update(self):
         self.content_type = contenttypes.registry['file']
+        self.context = self.content_type.bind(
+            self.request.database).find_one(**self.params)
 
     def get_initial_data(self):
-        binding = self.content_type.bind(self.request.database)
-        return binding.find_one(**self.params)
+        return self.context
 
     def apply(self, data):
-        binding = self.content_type.bind(self.request.database)
-        return binding.update(_key=data['az'], **data)
+        crud = self.content_type.get_crud(self.request.app)
+        return crud.update(self.context, data, self.request)
 
-    def remove(self, key):
-        binding = self.content_type.bind(self.request.database)
-        return binding.delete(key)
+    def remove(self, item):
+        crud = self.content_type.get_crud(self.request.app)
+        return crud.delete(item, self.request)
 
     def get_form(self):
         return Form.from_schema(

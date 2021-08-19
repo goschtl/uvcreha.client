@@ -7,34 +7,6 @@ from reha.client.app import backend, TEMPLATES
 from uvcreha.browser.views import View
 
 
-@backend.register("/user.add", name="user.add")
-class AddUserForm(AddForm):
-    title = "Benutzer anlegen"
-
-    def update(self):
-        self.content_type = contenttypes.registry['user']
-
-    def create(self, data):
-        binding = self.content_type.bind(self.request.database)
-        data = self.content_type.factory.create(data)
-        obj, response = binding.create(**{
-            **self.params,
-            **data,
-            '_key': data['uid'],
-            'state': user_workflow.states.pending.name
-        })
-        self.request.app.notify(
-            "user_created",
-            request=self.request, uid=obj['uid'], user=obj)
-        return obj
-
-    def get_form(self):
-        return Form.from_schema(
-            self.content_type.schema,
-            include=("uid", "loginname", "password", "email")
-        )
-
-
 @backend.register("/users/{uid}", name="user.view")
 class UserIndex(View):
     template = TEMPLATES['user_lp']
@@ -62,6 +34,27 @@ class UserIndex(View):
         }
 
 
+@backend.register("/user.add", name="user.add")
+class AddUserForm(AddForm):
+    title = "Benutzer anlegen"
+
+    def update(self):
+        self.content_type = contenttypes.registry['user']
+
+    def create(self, data):
+        crud = self.content_type.get_crud(self.request.app)
+        return crud.create(
+            {**data, "state": user_workflow.states.pending.name},
+            self.request
+        )
+
+    def get_form(self):
+        return Form.from_schema(
+            self.content_type.schema,
+            include=("uid", "loginname", "password", "email")
+        )
+
+
 @backend.register("/users/{uid}/edit", name="user.edit")
 class EditUserForm(EditForm):
     title = "Benutzer anlegen"
@@ -76,12 +69,13 @@ class EditUserForm(EditForm):
     def get_initial_data(self):
         return self.context
 
-    def apply(self, data):
-        return self.content_type.bind(
-            self.request.database).update(formdata['uid'], **data)
+    def apply(self, data) -> None:
+        crud = self.content_type.get_crud(self.request.app)
+        return crud.update(data, self.request)
 
-    def remove(self, id):
-        return self.content_type.bind(self.request.database).delete(id)
+    def remove(self, item) -> None:
+        crud = self.content_type.get_crud(self.request.app)
+        return crud.delete(data, self.request)
 
     def get_form(self):
         return Form.from_schema(

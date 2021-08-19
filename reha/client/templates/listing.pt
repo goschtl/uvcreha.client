@@ -29,7 +29,7 @@
              tal:attributes="href url"
              tal:content="brain.title" />
         </td>
-        <td tal:content="brain.date" />
+        <td tal:content="brain.get('creation_date')" />
         <td>
           <span data-state="${brain.state.name}">
             ${brain.state.value}
