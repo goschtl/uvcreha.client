@@ -8,8 +8,8 @@
       <dd tal:content="view.context.title" />
       <dt>State</dt>
       <dd>
-        <span data-state="${view.context.state.name}">
-          ${view.context.state.value}
+        <span data-state="${view.context.state}">
+          ${view.context.state}
         </span>
       </dd>
     </dl>
