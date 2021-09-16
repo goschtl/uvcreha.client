@@ -35,8 +35,8 @@ class UserIndex(Page):
                 self.request.app,
                 self.request.get_database()
         ).find(uid=self.uid):
-            docs[doc['az']].append(doc)
-            counters[doc['az']].update([doc.state.value])
+            docs[doc.az].append(doc)
+            counters[doc.az].update([doc.state])
         return {
             'files': files,
             'docs': docs,
@@ -92,7 +92,7 @@ class EditUserForm(EditForm):
         return self.crud.update(self.context, data, self.request)
 
     def remove(self, item) -> None:
-        return self.crud.delete(data, self.request)
+        return self.crud.delete(item, self.request)
 
     def get_form(self):
         return JSONForm.from_schema(

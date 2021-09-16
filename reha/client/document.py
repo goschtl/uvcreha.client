@@ -3,6 +3,7 @@ from uvcreha import contents
 from uvcreha.browser.crud import AddForm, EditForm, DefaultView
 from uvcreha.browser.form import JSONForm
 from wtforms.fields import SelectField
+from reha.prototypes.workflows.document import document_workflow
 
 
 @routes.register("/users/{uid}/file/{az}/docs/{docid}", name="doc.view")
@@ -18,7 +19,7 @@ class DocumentIndex(DefaultView):
         self.context = self.crud.find_one(**self.params)
 
     def get_initial_data(self):
-        return self.crud.find_one(**self.params)
+        return self.context.dict()
 
     def get_form(self):
         return JSONForm.from_schema(
@@ -36,7 +37,7 @@ def alternatives(name, form):
         if versions:
             latest = versions.get()
             alts.append((
-                f'{key}.{latest.number}',
+                f'{key}.{latest.identifier}',
                 latest.value.get('title', key)
             ))
     return SelectField(
@@ -57,7 +58,11 @@ class AddDocument(AddForm):
         )
 
     def create(self, data):
-        return self.crud.create({**self.params, **data}, self.request)
+        return self.crud.create({
+            **self.params,
+            **data,
+            'state': document_workflow.default_state.name
+        }, self.request)
 
     def get_form(self):
         return JSONForm.from_schema(
@@ -89,7 +94,7 @@ class DocumentEdit(EditForm):
         self.context = self.crud.find_one(**self.params)
 
     def get_initial_data(self):
-        return self.crud.find_one(**self.params)
+        return self.context.dict()
 
     def apply(self, data):
         return self.crud.update(self.context, data, self.request)
