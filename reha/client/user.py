@@ -13,28 +13,18 @@ class UserIndex(Page):
 
     def update(self):
         self.uid = self.params['uid']
-        self.content_type = self.request.app.utilities['contents']["user"]
-        self.crud = self.content_type.bind(
-            self.request.app,
-            self.request.get_database()
-        )
+        self.content_type, self.crud = self.request.get_crud('user')
         self.context = self.crud.fetch(self.uid)
 
     def GET(self):
-        ct = self.request.app.utilities['contents']["file"]
-        files = ct.bind(
-            self.request.app,
-            self.request.get_database()
-        ).find(uid=self.uid)
+        ct, crud = self.request.get_crud('file')
+        files = crud.find(uid=self.uid)
 
         docs = defaultdict(list)
         counters = defaultdict(Counter)
 
-        ct = self.request.app.utilities['contents']["document"]
-        for doc in ct.bind(
-                self.request.app,
-                self.request.get_database()
-        ).find(uid=self.uid):
+        ct, crud = self.request.get_crud('document')
+        for doc in crud.find(uid=self.uid):
             docs[doc.az].append(doc)
             counters[doc.az].update([doc.state])
         return {
@@ -49,11 +39,7 @@ class AddUserForm(AddForm):
     title = "Benutzer anlegen"
 
     def update(self):
-        self.content_type = self.request.app.utilities['contents']["user"]
-        self.crud = self.content_type.bind(
-            self.request.app,
-            self.request.get_database()
-        )
+        self.content_type, self.crud = self.request.get_crud('user')
 
     def create(self, data):
         return self.crud.create(
@@ -78,15 +64,11 @@ class EditUserForm(EditForm):
 
     def update(self):
         self.uid = self.params['uid']
-        self.content_type = self.request.app.utilities['contents']["user"]
-        self.crud = self.content_type.bind(
-            self.request.app,
-            self.request.get_database()
-        )
+        self.content_type, self.crud = self.request.get_crud('user')
         self.context = self.crud.fetch(self.uid)
 
     def get_initial_data(self):
-        return self.context.dict()
+        return self.context.to_dict()
 
     def apply(self, data) -> None:
         return self.crud.update(self.context, data, self.request)

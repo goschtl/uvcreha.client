@@ -30,11 +30,7 @@ class Index(Page):
         self.base = self.request.environ['SCRIPT_NAME']
 
     def get_users(self, query: str=''):
-        ct = self.request.app.utilities['contents']["user"]
-        crud = ct.bind(
-            self.request.app,
-            self.request.get_database()
-        )
+        ct, crud = self.request.get_crud('user')
         users = crud.find()
         if not query:
             return users

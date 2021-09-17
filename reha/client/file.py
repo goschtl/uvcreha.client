@@ -9,15 +9,11 @@ class FileIndex(DefaultView):
     title = "File"
 
     def update(self):
-        self.content_type = self.request.app.utilities['contents']["file"]
-        self.crud = self.content_type.bind(
-            self.request.app,
-            self.request.get_database()
-        )
+        self.content_type, self.crud = self.request.get_crud('file')
         self.context = self.crud.find_one(**self.params)
 
     def get_initial_data(self):
-        return self.context.dict()
+        return self.context.to_dict()
 
     def get_form(self):
         return JSONForm.from_schema(
@@ -32,11 +28,7 @@ class AddFile(AddForm):
     readonly = ('uid',)
 
     def update(self):
-        self.content_type = self.request.app.utilities['contents']["file"]
-        self.crud = self.content_type.bind(
-            self.request.app,
-            self.request.get_database()
-        )
+        self.content_type, self.crud = self.request.get_crud('file')
 
     def create(self, data):
         return self.crud.create(
@@ -61,15 +53,11 @@ class FileEdit(EditForm):
     readonly = ('uid', 'az')
 
     def update(self):
-        self.content_type = self.request.app.utilities['contents']["file"]
-        self.crud = self.content_type.bind(
-            self.request.app,
-            self.request.get_database()
-        )
+        self.content_type, self.crud = self.request.get_crud('file')
         self.context = self.crud.find_one(**self.params)
 
     def get_initial_data(self):
-        return self.context.dict()
+        return self.context.to_dict()
 
     def apply(self, data):
         return self.crud.update(self.context, data, self.request)
@@ -84,14 +72,11 @@ class FileEdit(EditForm):
         )
 
 
-@ui.register_slot(request=AdminRequest, view=FileIndex, name="below-content")
+@ui.register_slot(
+    request=AdminRequest, view=FileIndex, name="below-content")
 def FileDocumentsList(request, name, view):
-    content_type = self.request.app.utilities['contents']["document"]
-    crud = content_type.bind(
-        request.app,
-        request.get_database()
-    )
-    docs = crud.find(uid=view.context['uid'], az=view.context['az'])
+    content_type, crud = request.get_crud('document')
+    docs = crud.find(uid=view.context.uid, az=view.context.az)
     return TEMPLATES["listing.pt"].render(
         brains=docs,
         listing_title="Documents"
