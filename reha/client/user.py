@@ -1,32 +1,32 @@
 from collections import defaultdict, Counter
-from uvcreha.browser.form import Form
+from uvcreha.browser.form import JSONForm
 from uvcreha.browser.crud import AddForm, EditForm
-from uvcreha import contenttypes
-from uvcreha.workflow import user_workflow
-from reha.client.app import backend, TEMPLATES
-from uvcreha.browser.views import View
+from reha.prototypes.workflows.user import user_workflow
+from reha.client.app import routes, TEMPLATES
+from uvcreha.browser import Page
 
 
-@backend.register("/users/{uid}", name="user.view")
-class UserIndex(View):
+@routes.register("/users/{uid}", name="user.view")
+class UserIndex(Page):
     template = TEMPLATES['user_lp']
     listing = TEMPLATES['listing']
 
     def update(self):
         self.uid = self.params['uid']
-        self.content_type = contenttypes.registry['user']
-        self.context = self.content_type.bind(
-            self.request.database).fetch(self.uid)
+        self.content_type, self.crud = self.request.get_crud('user')
+        self.context = self.crud.fetch(self.uid)
 
     def GET(self):
-        ct = contenttypes.registry['file']
-        files = ct.bind(self.request.database).find(uid=self.uid)
+        ct, crud = self.request.get_crud('file')
+        files = crud.find(uid=self.uid)
+
         docs = defaultdict(list)
         counters = defaultdict(Counter)
-        ct = contenttypes.registry['document']
-        for doc in ct.bind(self.request.database).find(uid=self.uid):
-            docs[doc['az']].append(doc)
-            counters[doc['az']].update([doc.state.value])
+
+        ct, crud = self.request.get_crud('document')
+        for doc in crud.find(uid=self.uid):
+            docs[doc.az].append(doc)
+            counters[doc.az].update([doc.state])
         return {
             'files': files,
             'docs': docs,
@@ -34,51 +34,50 @@ class UserIndex(View):
         }
 
 
-@backend.register("/user.add", name="user.add")
+@routes.register("/user.add", name="user.add")
 class AddUserForm(AddForm):
     title = "Benutzer anlegen"
 
     def update(self):
-        self.content_type = contenttypes.registry['user']
+        self.content_type, self.crud = self.request.get_crud('user')
 
     def create(self, data):
-        crud = self.content_type.get_crud(self.request.app)
-        return crud.create(
-            {**data, "state": user_workflow.states.pending.name},
+        return self.crud.create(
+            {
+                **data,
+                "state": user_workflow.states.pending.name
+            },
             self.request
         )
 
     def get_form(self):
-        return Form.from_schema(
+        return JSONForm.from_schema(
             self.content_type.schema,
             include=("uid", "loginname", "password", "email")
         )
 
 
-@backend.register("/users/{uid}/edit", name="user.edit")
+@routes.register("/users/{uid}/edit", name="user.edit")
 class EditUserForm(EditForm):
     title = "Benutzer anlegen"
     readonly = ('uid',)
 
     def update(self):
         self.uid = self.params['uid']
-        self.content_type = contenttypes.registry['user']
-        self.context = self.content_type.bind(
-            self.request.database).fetch(self.uid)
+        self.content_type, self.crud = self.request.get_crud('user')
+        self.context = self.crud.fetch(self.uid)
 
     def get_initial_data(self):
-        return self.context
+        return self.context.to_dict()
 
     def apply(self, data) -> None:
-        crud = self.content_type.get_crud(self.request.app)
-        return crud.update(data, self.request)
+        return self.crud.update(self.context, data, self.request)
 
     def remove(self, item) -> None:
-        crud = self.content_type.get_crud(self.request.app)
-        return crud.delete(data, self.request)
+        return self.crud.delete(item, self.request)
 
     def get_form(self):
-        return Form.from_schema(
+        return JSONForm.from_schema(
             self.content_type.schema, include=(
                 "uid", "loginname", "password", "email"
             )

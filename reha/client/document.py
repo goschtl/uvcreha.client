@@ -1,23 +1,24 @@
-from reha.client.app import backend
-from uvcreha import jsonschema, contenttypes
+from reha.client.app import routes
+from uvcreha import contents
 from uvcreha.browser.crud import AddForm, EditForm, DefaultView
-from uvcreha.browser.form import Form
+from uvcreha.browser.form import JSONForm
 from wtforms.fields import SelectField
+from reha.prototypes.workflows.document import document_workflow
 
 
-@backend.register("/users/{uid}/file/{az}/docs/{docid}", name="doc.view")
+@routes.register("/users/{uid}/file/{az}/docs/{docid}", name="doc.view")
 class DocumentIndex(DefaultView):
     title = "Document"
 
     def update(self):
-        self.content_type = contenttypes.registry['document']
+        self.content_type, self.crud = self.request.get_crud('document')
+        self.context = self.crud.find_one(**self.params)
 
     def get_initial_data(self):
-        binding = self.content_type.bind(self.request.database)
-        return binding.find_one(**self.params)
+        return self.context.to_dict()
 
     def get_form(self):
-        return Form.from_schema(
+        return JSONForm.from_schema(
             self.content_type.schema, exclude=(
                 'creation_date', # auto-added value
                 'state', # workflow state
@@ -28,32 +29,35 @@ class DocumentIndex(DefaultView):
 
 def alternatives(name, form):
     alts = []
-    for key, versions in jsonschema.documents_store.items():
+    for key, versions in contents.documents_store.items():
         if versions:
             latest = versions.get()
             alts.append((
-                f'{key}.{latest.number}',
+                f'{key}.{latest.identifier}',
                 latest.value.get('title', key)
             ))
     return SelectField(
         'Select your content type', choices=alts).bind(form, name)
 
 
-@backend.register(
+@routes.register(
     "/users/{uid}/files/{az}/add_document", name="file.new_doc")
 class AddDocument(AddForm):
     title = "Dokument anlegen"
     readonly = ('az', 'uid')
 
     def update(self):
-        self.content_type = contenttypes.registry['document']
+        self.content_type, self.crud = self.request.get_crud('document')
 
     def create(self, data):
-        crud = self.content_type.get_crud(self.request.app)
-        return crud.create({**self.params, **data}, self.request)
+        return self.crud.create({
+            **self.params,
+            **data,
+            'state': document_workflow.default_state.name
+        }, self.request)
 
     def get_form(self):
-        return Form.from_schema(
+        return JSONForm.from_schema(
             self.content_type.schema,
             include=('az', 'uid', 'docid', 'content_type')
         )
@@ -67,31 +71,27 @@ class AddDocument(AddForm):
         return form
 
 
-@backend.register(
+@routes.register(
     "/users/{uid}/file/{az}/docs/{docid}/edit", name="doc.edit")
 class DocumentEdit(EditForm):
     title = "Document"
     readonly = ('uid', 'az', 'docid', 'content_type')
 
     def update(self):
-        self.content_type = contenttypes.registry['document']
-        self.context = self.content_type.bind(
-            self.request.database).find_one(**self.params)
+        self.content_type, self.crud = self.request.get_crud('document')
+        self.context = self.crud.find_one(**self.params)
 
     def get_initial_data(self):
-        binding = self.content_type.bind(self.request.database)
-        return binding.find_one(**self.params)
+        return self.context.to_dict()
 
     def apply(self, data):
-        crud = self.content_type.get_crud(self.request.app)
-        return crud.update(self.context, data, self.request)
+        return self.crud.update(self.context, data, self.request)
 
     def remove(self, item):
-        crud = self.content_type.get_crud(self.request.app)
-        return crud.delete(item, self.request)
+        return self.crud.delete(item, self.request)
 
     def get_form(self):
-        return Form.from_schema(
+        return JSONForm.from_schema(
             self.content_type.schema, exclude=(
                 'creation_date', # auto-added value
                 'state', # workflow state

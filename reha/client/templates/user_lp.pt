@@ -8,8 +8,8 @@
       <dd tal:content="view.context.title" />
       <dt>State</dt>
       <dd>
-        <span data-state="${view.context.state.name}">
-          ${view.context.state.value}
+        <span data-state="${view.context.state}">
+          ${view.context.state}
         </span>
       </dd>
     </dl>
@@ -29,7 +29,7 @@
                 data-toggle="collapse"
                 type="button">
               <span tal:content="file.id" />
-              <span tal:content="file.state.value" />
+              <span tal:content="file.state" />
             </button>
           </div>
           <div class="col-md-4">

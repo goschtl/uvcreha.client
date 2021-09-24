@@ -1,12 +1,10 @@
 from fanstatic import Library, Resource
-from reiter.application.browser import TemplateLoader
-from reiter.application.browser import registries
+from reiter.application.browser import registries, TemplateLoader
 from reiter.view.utils import routables
 from roughrider.routing.route import NamedRoutes
-from uvcreha import contenttypes
 from uvcreha.browser.login import LoginForm
 from uvcreha.request import Request
-from uvcreha.browser.views import View
+from uvcreha.browser import Page
 
 
 TEMPLATES = TemplateLoader("./templates")
@@ -14,7 +12,7 @@ library = Library("reha.client", "static")
 htmx = Resource(library, 'htmx.js', bottom=True)
 css = Resource(library, 'admin.css')
 
-backend = NamedRoutes(extractor=routables)
+routes = NamedRoutes(extractor=routables)
 ui = registries.UIRegistry()
 
 
@@ -22,8 +20,8 @@ class AdminRequest(Request):
     pass
 
 
-@backend.register("/")
-class Index(View):
+@routes.register("/")
+class Index(Page):
     template = TEMPLATES['index']
     listing = TEMPLATES['listing']
 
@@ -32,8 +30,8 @@ class Index(View):
         self.base = self.request.environ['SCRIPT_NAME']
 
     def get_users(self, query: str=''):
-        binding = contenttypes.registry['user'].bind(self.request.database)
-        users = binding.find()
+        ct, crud = self.request.get_crud('user')
+        users = crud.find()
         if not query:
             return users
         return [user for user in users if user.title.startswith(query)]
@@ -52,7 +50,7 @@ class Index(View):
         )
 
 
-backend.register("/login")(LoginForm)
+routes.register("/login")(LoginForm)
 
 
 @ui.register_slot(request=AdminRequest, name="sitecap")
